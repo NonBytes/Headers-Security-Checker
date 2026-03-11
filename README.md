@@ -22,6 +22,17 @@ This tool connects to a specified URL, retrieves the HTTP response headers, and 
 
 ## Installation
 
+### Homebrew (macOS & Linux)
+
+You can easily install the tool using Homebrew:
+
+```bash
+brew tap NonBytes/Headers-Security-Checker
+brew install headers-security-checker
+```
+
+### From Source
+
 Ensure you have Rust installed on your machine. Clone this repository and build the project using Cargo:
 
 ```bash
