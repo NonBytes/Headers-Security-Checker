@@ -1,21 +1,21 @@
 class HeadersSecurityChecker < Formula
   desc "High-performance command-line tool for security auditing of HTTP response headers"
   homepage "https://github.com/NonBytes/Headers-Security-Checker"
-  version "0.1.1"
+  version "0.1.2"
 
   if OS.mac?
-    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.1/headers_security_checker-macos-amd64"
-    sha256 "c3f27c67ea531a25108bc0618147bc9cebf624795149d6d8d53803b71d9f4b4a"
+    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.2/hsc-macos-amd64"
+    sha256 "17bfd36ebd5a5c2c7dcf1b9f7d066119ca4133adb6c28bf8b558f6651bdecba8"
   elsif OS.linux?
-    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.1/headers_security_checker-linux-amd64"
-    sha256 "6a9d0202226450252bcd46587edd9389d7e4b47d13401f8f1ae520f3cbf763b4"
+    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.2/hsc-linux-amd64"
+    sha256 "17bfd36ebd5a5c2c7dcf1b9f7d066119ca4133adb6c28bf8b558f6651bdecba8"
   end
 
   def install
     if OS.mac?
-      bin.install "headers_security_checker-macos-amd64" => "hsc"
+      bin.install "hsc-macos-amd64" => "hsc"
     elsif OS.linux?
-      bin.install "headers_security_checker-linux-amd64" => "hsc"
+      bin.install "hsc-linux-amd64" => "hsc"
     end
   end
 
