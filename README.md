@@ -25,7 +25,7 @@ This tool connects to a specified URL, retrieves the HTTP response headers, and 
 Ensure you have Rust installed on your machine. Clone this repository and build the project using Cargo:
 
 ```bash
-git clone https://github.com/yourusername/headers_security_checker
+git clone https://github.com/NonBytes/Headers-Security-Checker
 cd headers_security_checker
 cargo build --release
 ```
