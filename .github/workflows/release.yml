@@ -9,6 +9,8 @@ jobs:
   build-and-release:
     name: Build and Release
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -33,15 +35,10 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Prepare asset (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Prepare asset
+        shell: bash
         run: |
           mv target/release/${{ matrix.executable_name }} target/release/${{ matrix.asset_name }}
-
-      - name: Prepare asset (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          Rename-Item target\release\${{ matrix.executable_name }} target\release\${{ matrix.asset_name }}
 
       - name: Upload binaries to Release
         uses: softprops/action-gh-release@v2
