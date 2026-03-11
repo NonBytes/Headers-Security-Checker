@@ -16,14 +16,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            asset_name: headers_security_checker-linux-amd64
-            executable_name: headers_security_checker
+            asset_name: hsc-linux-amd64
+            executable_name: hsc
           - os: macos-latest
-            asset_name: headers_security_checker-macos-amd64
-            executable_name: headers_security_checker
+            asset_name: hsc-macos-amd64
+            executable_name: hsc
           - os: windows-latest
-            asset_name: headers_security_checker-windows-amd64.exe
-            executable_name: headers_security_checker.exe
+            asset_name: hsc-windows-amd64.exe
+            executable_name: hsc.exe
 
     steps:
       - name: Checkout repository

@@ -27,7 +27,7 @@ This tool connects to a specified URL, retrieves the HTTP response headers, and 
 You can easily install the tool using Homebrew:
 
 ```bash
-brew tap NonBytes/Headers-Security-Checker
+brew tap NonBytes/Headers-Security-Checker https://github.com/NonBytes/Headers-Security-Checker
 brew install headers-security-checker
 ```
 
@@ -41,38 +41,40 @@ cd headers_security_checker
 cargo build --release
 ```
 
-After building, the optimized executable will be available at `target/release/headers_security_checker`.
+After building, the optimized executable will be available at `target/release/hsc`.
 
 ## Usage
 
-You can run the tool directly using Cargo or execute the compiled binary.
+You can run the installed `hsc` binary directly or use Cargo.
 
 ```bash
+hsc <URL> [OPTIONS]
+# or
 cargo run -- <URL> [OPTIONS]
 ```
 
 ### Basic Scan
 Perform a standard security scan on a target URL:
 ```bash
-cargo run -- https://example.com
+hsc https://example.com
 ```
 
 ### Following Redirects
 By default, the tool does not follow redirects to ensure only the strictly specified endpoint is scanned. To follow redirects, use the `-f` flag:
 ```bash
-cargo run -- https://example.com -f
+hsc https://example.com -f
 ```
 
 ### Scanning Authenticated Endpoints
 Use the `-H` or `--header` flag to include custom HTTP headers in your request:
 ```bash
-cargo run -- https://api.example.com -H "Authorization: Bearer <TOKEN>" -H "Cookie: session=xyz"
+hsc https://api.example.com -H "Authorization: Bearer <TOKEN>" -H "Cookie: session=xyz"
 ```
 
 ### Raw Header Output
 Skip the security analysis and simply print the raw HTTP headers returned by the server:
 ```bash
-cargo run -- --only-headers https://example.com
+hsc --only-headers https://example.com
 ```
 
 ## Contributing

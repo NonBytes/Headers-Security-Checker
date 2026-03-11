@@ -13,13 +13,13 @@ class HeadersSecurityChecker < Formula
 
   def install
     if OS.mac?
-      bin.install "headers_security_checker-macos-amd64" => "headers_security_checker"
+      bin.install "headers_security_checker-macos-amd64" => "hsc"
     elsif OS.linux?
-      bin.install "headers_security_checker-linux-amd64" => "headers_security_checker"
+      bin.install "headers_security_checker-linux-amd64" => "hsc"
     end
   end
 
   test do
-    system "#{bin}/headers_security_checker", "--help"
+    system "#{bin}/hsc", "--help"
   end
 end
