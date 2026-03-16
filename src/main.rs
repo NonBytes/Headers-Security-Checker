@@ -35,6 +35,13 @@ async fn main() -> anyhow::Result<()> {
     };
     let target_url = initial_url.clone();
 
+    // Prepare for dual HTTP/HTTPS discovery
+    let http_discovery_url = if initial_url.starts_with("https://") {
+        Some(initial_url.replace("https://", "http://"))
+    } else {
+        None
+    };
+
     if !cli.only_headers {
         println!("{} {}", "Analyzing headers for:".bold(), target_url.bold().blue());
     }
@@ -103,6 +110,38 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     };
+    
+    // Perform silent HTTP discovery if target was HTTPS
+    let mut http_upgrade_status = None;
+    if let Some(disco_url) = http_discovery_url {
+        let disco_client = Client::builder()
+            .timeout(Duration::from_secs(5))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+        
+        match disco_client.get(&disco_url).send().await {
+            Ok(resp) => {
+                if resp.status().is_redirection() {
+                    if let Some(loc) = resp.headers().get("location") {
+                        if loc.to_str().unwrap_or("").starts_with("https://") {
+                            http_upgrade_status = Some("SUCCESSFUL (Redirected to HTTPS)".green().to_string());
+                        } else {
+                            http_upgrade_status = Some("INSECURE (Redirects but not to HTTPS)".yellow().to_string());
+                        }
+                    } else {
+                         http_upgrade_status = Some("INSECURE (Redirects but missing location header)".yellow().to_string());
+                    }
+                } else if resp.status().is_success() {
+                    http_upgrade_status = Some("INSECURE (HTTP is accessible and does not redirect)".red().bold().to_string());
+                } else {
+                    http_upgrade_status = Some(format!("UNKNOWN (HTTP returned status {})", resp.status().as_u16()).dimmed().to_string());
+                }
+            },
+            Err(_) => {
+                http_upgrade_status = Some("SECURE (HTTP Connection Refused/Closed)".green().to_string());
+            }
+        }
+    }
     
     if !cli.only_headers {
         println!("{} {}", "HTTP Status:".bold(), response.status().as_u16());
@@ -206,6 +245,10 @@ async fn main() -> anyhow::Result<()> {
     } else {
         transport_security.push(("Connection Status", "INSECURE (HTTP)".red().bold().to_string()));
         warnings.push(("transport-security", "CRITICAL: Connection is not encrypted. Data can be intercepted.".to_string()));
+    }
+    
+    if let Some(status) = http_upgrade_status {
+        transport_security.push(("Plain HTTP Upgrade", status));
     }
 
     // Analyze CORS Headers
