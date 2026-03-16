@@ -96,6 +96,11 @@ async fn main() -> anyhow::Result<()> {
         ("x-content-type-options", "Prevents MIME-sniffing. Should be set to 'nosniff'."),
         ("referrer-policy", "Controls how much referrer information (sent with the Referer header) should be included with requests."),
         ("permissions-policy", "Allows site to control which features and APIs can be used in the browser."),
+        ("cache-control", "Specifies caching policies in both client-side and server-side. Should prevent sensitive data from being cached."),
+        ("cross-origin-opener-policy", "Controls which documents can share a window with the document."),
+        ("cross-origin-embedder-policy", "Prevents a document from loading any cross-origin resources that don't explicitly grant permission."),
+        ("cross-origin-resource-policy", "Controls which origins are allowed to fetch the resource."),
+        ("x-xss-protection", "Legacy header to enable XSS filtering in browsers. (Mostly obsolete but still used for older clients)"),
     ];
 
     let info_headers = vec![
@@ -111,8 +116,28 @@ async fn main() -> anyhow::Result<()> {
                 present_security_headers.push((header, value.to_str().unwrap_or("Non-ASCII Value")));
                 
                 // Specific checks
-                if header == "x-content-type-options" && value.to_str().unwrap_or("") != "nosniff" {
+                let val_str = value.to_str().unwrap_or("").to_lowercase();
+                if header == "x-content-type-options" && val_str != "nosniff" {
                     warnings.push(("x-content-type-options", format!("Value is not 'nosniff': {:?}", value)));
+                }
+
+                if header == "cache-control" {
+                    if !val_str.contains("no-store") && !val_str.contains("no-cache") {
+                         warnings.push(("cache-control", "Header exists but doesn't contain 'no-store' or 'no-cache'. Sensitive data might be cached.".to_string()));
+                    }
+                }
+
+                if header == "strict-transport-security" {
+                    if !val_str.contains("includesubdomains") {
+                        warnings.push(("strict-transport-security", "HSTS header is missing 'includeSubDomains' directive.".to_string()));
+                    }
+                    if !val_str.contains("max-age") {
+                         warnings.push(("strict-transport-security", "HSTS header is missing 'max-age' directive.".to_string()));
+                    }
+                }
+
+                if header == "x-xss-protection" && val_str == "0" {
+                    warnings.push(("x-xss-protection", "Value is '0', which explicitly disables XSS protection.".to_string()));
                 }
             },
             None => {
