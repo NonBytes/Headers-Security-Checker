@@ -35,9 +35,11 @@ async fn main() -> anyhow::Result<()> {
     };
     let target_url = initial_url.clone();
 
-    // Prepare for dual HTTP/HTTPS discovery
-    let http_discovery_url = if initial_url.starts_with("https://") {
-        Some(initial_url.replace("https://", "http://"))
+    // Prepare for bidirectional HTTP/HTTPS discovery
+    let alt_discovery_url = if initial_url.starts_with("https://") {
+        Some((initial_url.replace("https://", "http://"), "Plain HTTP Upgrade"))
+    } else if initial_url.starts_with("http://") {
+        Some((initial_url.replace("http://", "https://"), "HTTPS Availability"))
     } else {
         None
     };
@@ -111,9 +113,9 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     
-    // Perform silent HTTP discovery if target was HTTPS
-    let mut http_upgrade_status = None;
-    if let Some(disco_url) = http_discovery_url {
+    // Perform silent bidirectional discovery
+    let mut alt_discovery_status = None;
+    if let Some((disco_url, label)) = alt_discovery_url {
         let disco_client = Client::builder()
             .timeout(Duration::from_secs(5))
             .redirect(reqwest::redirect::Policy::none())
@@ -121,24 +123,42 @@ async fn main() -> anyhow::Result<()> {
         
         match disco_client.get(&disco_url).send().await {
             Ok(resp) => {
-                if resp.status().is_redirection() {
-                    if let Some(loc) = resp.headers().get("location") {
-                        if loc.to_str().unwrap_or("").starts_with("https://") {
-                            http_upgrade_status = Some("SUCCESSFUL (Redirected to HTTPS)".green().to_string());
+                if label == "Plain HTTP Upgrade" {
+                    if resp.status().is_redirection() {
+                        if let Some(loc) = resp.headers().get("location") {
+                            if loc.to_str().unwrap_or("").starts_with("https://") {
+                                alt_discovery_status = Some((label, "SUCCESSFUL (Redirected to HTTPS)".green().to_string()));
+                            } else {
+                                alt_discovery_status = Some((label, "INSECURE (Redirects but not to HTTPS)".yellow().to_string()));
+                            }
                         } else {
-                            http_upgrade_status = Some("INSECURE (Redirects but not to HTTPS)".yellow().to_string());
+                             alt_discovery_status = Some((label, "INSECURE (Redirects but missing location header)".yellow().to_string()));
                         }
+                    } else if resp.status().is_success() {
+                        alt_discovery_status = Some((label, "INSECURE (HTTP is accessible and does not redirect)".red().bold().to_string()));
                     } else {
-                         http_upgrade_status = Some("INSECURE (Redirects but missing location header)".yellow().to_string());
+                        alt_discovery_status = Some((label, format!("UNKNOWN (HTTP returned status {})", resp.status().as_u16()).dimmed().to_string()));
                     }
-                } else if resp.status().is_success() {
-                    http_upgrade_status = Some("INSECURE (HTTP is accessible and does not redirect)".red().bold().to_string());
                 } else {
-                    http_upgrade_status = Some(format!("UNKNOWN (HTTP returned status {})", resp.status().as_u16()).dimmed().to_string());
+                    // HTTPS Availability check
+                    if resp.status().is_success() || resp.status().is_redirection() {
+                        alt_discovery_status = Some((label, "AVAILABLE (Connection Successful)".green().to_string()));
+                    } else {
+                        alt_discovery_status = Some((label, format!("UNKNOWN (HTTPS returned status {})", resp.status().as_u16()).dimmed().to_string()));
+                    }
                 }
             },
-            Err(_) => {
-                http_upgrade_status = Some("SECURE (HTTP Connection Refused/Closed)".green().to_string());
+            Err(e) => {
+                if label == "Plain HTTP Upgrade" {
+                    alt_discovery_status = Some((label, "SECURE (HTTP Connection Refused/Closed)".green().to_string()));
+                } else {
+                    let err_msg = e.to_string().to_lowercase();
+                    if err_msg.contains("certificate") || err_msg.contains("ssl") || err_msg.contains("tls") || err_msg.contains("mismatch") {
+                         alt_discovery_status = Some((label, "NOT SECURE (Invalid Certificate)".red().bold().to_string()));
+                    } else {
+                         alt_discovery_status = Some((label, "UNAVAILABLE (Connection Refused/Closed)".dimmed().to_string()));
+                    }
+                }
             }
         }
     }
@@ -247,8 +267,8 @@ async fn main() -> anyhow::Result<()> {
         warnings.push(("transport-security", "CRITICAL: Connection is not encrypted. Data can be intercepted.".to_string()));
     }
     
-    if let Some(status) = http_upgrade_status {
-        transport_security.push(("Plain HTTP Upgrade", status));
+    if let Some((label, status)) = alt_discovery_status {
+        transport_security.push((label, status));
     }
 
     // Analyze CORS Headers
