@@ -72,7 +72,8 @@ async fn main() -> anyhow::Result<()> {
     };
     
     if !cli.only_headers {
-        println!("{} {}\n", "HTTP Status:".bold(), response.status().as_u16());
+        println!("{} {}", "HTTP Status:".bold(), response.status().as_u16());
+        println!("{} {:?}\n", "HTTP Version:".bold(), response.version());
     }
     
     let headers = response.headers();
@@ -107,6 +108,12 @@ async fn main() -> anyhow::Result<()> {
         ("server", "Reveals the server software and version."),
         ("x-powered-by", "Reveals the application framework (e.g., PHP, Express)."),
         ("x-aspnet-version", "Reveals ASP.NET version."),
+        ("x-generator", "Reveals the CMS or static site generator used."),
+        ("x-runtime", "Reveals execution time, often found in Ruby on Rails."),
+        ("via", "Reveals proxy server details."),
+        ("x-cache", "Reveals caching technology (e.g., Varnish, Squid)."),
+        ("cf-ray", "Cloudflare trace ID (reveals usage of Cloudflare)."),
+        ("server-timing", "Reveals backend processing times and server metrics."),
     ];
 
     // Analyze Security Headers
@@ -171,6 +178,29 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Analyze Cookies
+    let mut cookie_warnings = Vec::new();
+    for cookie in headers.get_all("set-cookie") {
+        let cookie_str = cookie.to_str().unwrap_or("");
+        let mut missing_flags = Vec::new();
+        
+        let cookie_lower = cookie_str.to_lowercase();
+        if !cookie_lower.contains("httponly") {
+            missing_flags.push("HttpOnly");
+        }
+        if !cookie_lower.contains("secure") {
+            missing_flags.push("Secure");
+        }
+        if !cookie_lower.contains("samesite") {
+            missing_flags.push("SameSite");
+        }
+
+        if !missing_flags.is_empty() {
+            let cookie_name = cookie_str.split('=').next().unwrap_or("Unknown");
+            cookie_warnings.push((cookie_name.to_string(), missing_flags.join(", ")));
+        }
+    }
+
     // Analyze Information Leakage
     for (header, desc) in info_headers {
         if let Some(value) = headers.get(header) {
@@ -187,6 +217,19 @@ async fn main() -> anyhow::Result<()> {
          for (header, value) in cors_results {
              println!("{}: {}", header.cyan(), value);
          }
+    }
+
+    println!("\n{}", "=== Cookie Security Analysis ===".magenta().bold());
+    if cookie_warnings.is_empty() {
+        if headers.get("set-cookie").is_some() {
+            println!("{}", "All cookies identified have secure flags.".green());
+        } else {
+            println!("{}", "No cookies found in response.".dimmed());
+        }
+    } else {
+        for (cookie, missing) in cookie_warnings {
+            println!("{} - {} Missing flags: {}", "Cookie:".magenta(), cookie.bold(), missing.red());
+        }
     }
 
     println!("\n{}", "=== Security Headers Present ===".green().bold());
