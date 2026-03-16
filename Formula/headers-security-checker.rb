@@ -1,14 +1,14 @@
 class HeadersSecurityChecker < Formula
   desc "High-performance command-line tool for security auditing of HTTP response headers"
   homepage "https://github.com/NonBytes/Headers-Security-Checker"
-  version "0.1.4"
+  version "0.1.5"
 
   if OS.mac?
-    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.4/hsc-macos-amd64"
-    sha256 "596bf19187806ca366f1175b15826cb8599e4d75d3ae59a547852379cf94f8e3"
+    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.5/hsc-macos-amd64"
+    sha256 "53f44824d89e341f3950bd513ba4a95a07678c92de2cba0ae31fbbaa34fd84c5"
   elsif OS.linux?
-    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.4/hsc-linux-amd64"
-    sha256 "4f9668b69ce63a960d1b6e85b4a39b1dc3527ba6ce9289c15d100a75868ed47b"
+    url "https://github.com/NonBytes/Headers-Security-Checker/releases/download/v0.1.5/hsc-linux-amd64"
+    sha256 "32ec8e367c188201e8a31669daee88dda2da64124989206c69dea29f3d6c498c"
   end
 
   def install
