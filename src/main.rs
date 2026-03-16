@@ -27,12 +27,13 @@ struct Cli {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     
-    // Parse URL, add schema if missing
-    let target_url = if cli.url.starts_with("http://") || cli.url.starts_with("https://") {
+    // Parse URL, add schema if missing (default to http to check for redirection)
+    let initial_url = if cli.url.starts_with("http://") || cli.url.starts_with("https://") {
         cli.url.clone()
     } else {
-        format!("https://{}", cli.url)
+        format!("http://{}", cli.url)
     };
+    let target_url = initial_url.clone();
 
     if !cli.only_headers {
         println!("{} {}", "Analyzing headers for:".bold(), target_url.bold().blue());
@@ -75,7 +76,8 @@ async fn main() -> anyhow::Result<()> {
         println!("{} {}", "HTTP Status:".bold(), response.status().as_u16());
         println!("{} {:?}\n", "HTTP Version:".bold(), response.version());
     }
-    
+
+    let final_url = response.url().clone();
     let headers = response.headers();
     
     if cli.only_headers {
@@ -153,6 +155,21 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Analyze Transport Security
+    let mut transport_security = Vec::new();
+    let initial_is_https = initial_url.starts_with("https://");
+    let final_is_https = final_url.as_str().starts_with("https://");
+
+    if final_is_https {
+        transport_security.push(("Connection Status", "SECURE (HTTPS)".green().to_string()));
+        if !initial_is_https {
+             transport_security.push(("Redirection", "SUCCESSFUL (HTTP -> HTTPS)".green().to_string()));
+        }
+    } else {
+        transport_security.push(("Connection Status", "INSECURE (HTTP)".red().bold().to_string()));
+        warnings.push(("transport-security", "CRITICAL: Connection is not encrypted. Data can be intercepted.".to_string()));
+    }
+
     // Analyze CORS Headers
     let acao = headers.get("access-control-allow-origin");
     let acac = headers.get("access-control-allow-credentials");
@@ -210,7 +227,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Output Results //
     
-    println!("{}", "=== CORS Headers Configuration ===".cyan().bold());
+    println!("{}", "=== Transport Security ===".blue().bold());
+    for (key, value) in transport_security {
+        println!("{}: {}", key.blue(), value);
+    }
+
+    println!("\n{}", "=== CORS Headers Configuration ===".cyan().bold());
     if cors_results.is_empty() {
          println!("{}", "No CORS headers found (Restricted to same-origin by default)".dimmed());
     } else {
