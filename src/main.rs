@@ -64,11 +64,43 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Perform a GET or HEAD request
-    let response = match request_builder.send().await {
+    let response_result = request_builder.send().await;
+    
+    let mut cert_error = None;
+    let response = match response_result {
         Ok(resp) => resp,
         Err(e) => {
-            println!("{} {}", "✗ Error connecting to target:".red().bold(), e);
-            std::process::exit(1);
+            let err_msg = e.to_string().to_lowercase();
+            if err_msg.contains("certificate") || err_msg.contains("ssl") || err_msg.contains("tls") || 
+               err_msg.contains("pkix") || err_msg.contains("mismatch") || err_msg.contains("expired") {
+                cert_error = Some(e.to_string());
+                // Retry with insecure allowed to at least get headers for analysis
+                let mut insecure_builder = Client::builder()
+                    .timeout(Duration::from_secs(10));
+                
+                if !cli.follow_redirects {
+                    insecure_builder = insecure_builder.redirect(reqwest::redirect::Policy::none());
+                }
+                
+                let insecure_client = insecure_builder.danger_accept_invalid_certs(true).build()?;
+                let mut insecure_req = insecure_client.get(&target_url);
+                // Add back custom headers
+                for header in &cli.headers {
+                    if let Some((k, v)) = header.split_once(':') {
+                        insecure_req = insecure_req.header(k.trim(), v.trim());
+                    }
+                }
+                match insecure_req.send().await {
+                    Ok(resp) => resp,
+                    Err(e2) => {
+                        println!("{} Connection failed even with insecure allowed: {}", "✗ Error:".red().bold(), e2);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                println!("{} {}", "✗ Error connecting to target:".red().bold(), e);
+                std::process::exit(1);
+            }
         }
     };
     
@@ -161,9 +193,15 @@ async fn main() -> anyhow::Result<()> {
     let final_is_https = final_url.as_str().starts_with("https://");
 
     if final_is_https {
-        transport_security.push(("Connection Status", "SECURE (HTTPS)".green().to_string()));
-        if !initial_is_https {
-             transport_security.push(("Redirection", "SUCCESSFUL (HTTP -> HTTPS)".green().to_string()));
+        if let Some(err) = cert_error {
+            transport_security.push(("Connection Status", "NOT SECURE (Invalid Certificate)".red().bold().to_string()));
+            transport_security.push(("Certificate Error", err.dimmed().to_string()));
+            warnings.push(("transport-security", "CRITICAL: SSL/TLS certificate validation failed. Connection is intercepted or misconfigured.".to_string()));
+        } else {
+            transport_security.push(("Connection Status", "SECURE (HTTPS)".green().to_string()));
+            if !initial_is_https {
+                 transport_security.push(("Redirection", "SUCCESSFUL (HTTP -> HTTPS)".green().to_string()));
+            }
         }
     } else {
         transport_security.push(("Connection Status", "INSECURE (HTTP)".red().bold().to_string()));
